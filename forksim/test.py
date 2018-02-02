@@ -1,9 +1,5 @@
 import hashlib
 
-nb_node = 0
-initial_chain = []
-difficulty = "00";
-proof_size = 32;
 
 class Block:
     def __init__(self, bid, previousHash, hash):
@@ -40,8 +36,35 @@ class Node:
         sha.update(toHash)
         return sha.hexdigest()
 
+# Main
 
-nodes = [Node(nb_node, initial_chain) for _ in range(10)]
+genSha = hashlib.sha256()
+genSha.update("0".encode('utf-8'))
+genesisBlock = Block(0, "0", genSha.hexdigest())
 
-for node in nodes:
-    node.whoAmI()
+nb_node = 0 # Nombre de noeuds
+initial_chain = []
+difficulty = "00"
+proof_size = 32
+forks = [] # Contient la liste des fork
+nodes = [Node(nb_node, genesisBlock) for _ in range(10)]
+
+
+def step():
+    global nodes
+    global forks
+
+    for node in nodes:
+        nodeHash = node.computeProof(node.chain)
+        if (node.checkHash(nodeHash)):
+            print("Le noeud %d à trouvé !"%node.nid)
+            newBid = node.chain.bid + 1
+            newPreviousHash = node.chain.hash
+            newBlock = Block(node.chain.bid + 1, node.chain.hash, nodeHash)
+            forks.append(newBlock)
+
+step()
+
+# while (len(forks) < 1):
+#     step()
+# print(forks)

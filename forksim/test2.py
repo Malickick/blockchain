@@ -8,9 +8,27 @@ import string
 #   Mettre en place pondération de noeuds
 #   Créer une classe Chain pour représenter les Forks
 
-
+# BUG :
+#  Quand un noeuds ajoute un bloc à sa chaine cela augmente la taille de toute les chaines
+#  Solution : dissocier la fork de la chaine
 
 random.seed(random.SystemRandom())
+
+class Chain:
+    def __init__(self, cid, blocks):
+        self.cid = cid
+        self.lenght = 0
+        self.blocks = blocks # Liste de blocs
+
+    # Renvoie le dernier bloc de la chaine
+    def getLastBlock(self):
+        return self.blocks[-1]
+
+    def addBlock(self, block):
+        self.blocks.append(block)
+        self.lenght += 1
+        #self.lenght = len(self.blocks)
+        print('Bloc ajoute a la chaine %d taille = %d'%(self.cid, self.lenght))
 
 class Block:
     def __init__(self, bid, previousHash, hash):
@@ -21,7 +39,6 @@ class Block:
 
 class Node:
     def __init__(self, nid, chain):
-        global nb_node
         self.nid   = nid
         self.chain = chain
         self.found = False # Vrai si le noeud à trouvé un bloc ce round
@@ -53,30 +70,30 @@ class Node:
         global forks
         randomIndex = random.randint(0,len(forks)-1)
         self.chain = forks[randomIndex]
-        #print('Le noeud %d adopte la fork %d'%(self.nid, randomIndex))
+        print('Le noeud %d adopte la fork %d'%(self.nid, randomIndex))
 
 
 # Renvoie la taille de la/les plus grande(s) forks
 def longestFork(forks):
     m = 0
     for fork in forks:
-        if fork.bid > m:
-            m = fork.bid
+        if fork.lenght > m:
+            m = fork.lenght
     return m
 
 # Fonction qui renvoie une liste forks mise à jour (ne contenant que les plus longues)
 def updateForks(m):
     res = []
     for fork in forks:
-        if fork.bid == m:
+        if (fork.lenght == m):
             res.append(fork)
     return res
 
 
+
+
+
 # Main
-
-
-
 
 # Variables globles:
 # Le premier bloc :
@@ -88,19 +105,23 @@ proof_size = 32
 # Nombre de noeuds connectés
 nb_node = 100
 # Difficulté du PoW
-difficulty = "0"
+difficulty = "00"
 # Liste des forks
-#forks = []
-forks = [Block(10, genesisBlock.hash, genesisBlock.hash) for _ in range(100) ]
+
+forks = []
+
+b = [Block(10, genesisBlock.hash, genesisBlock.hash) for _ in range(100)]
+forks = [Chain(i, b) for i in range(100)]
 # Création des noeuds du réseau
-nodes = [Node(i, genesisBlock) for i in range(nb_node)]
+nodes = [Node(i, forks[i]) for i in range(nb_node)]
+#nodes = [Node(i, Chain(0, [genesisBlock])) for i in range(nb_node)]
 #
 maxForkSize = 0
 
 def distributeFork(forks, nodes):
     for node in nodes:
         # node.chain.bid < forks[0].bid
-        if (len(forks)>=1 and  node.found != True):
+        if (len(forks)>=1 and node.found != True):
             # Dans ce cas le noeud ne travaille pas sur la bonne chaine
             node.chooseFork()
 
@@ -116,20 +137,20 @@ def step():
 
     for node in nodes:
         # L'index du bloc actuel
-        previousBid = node.chain.bid
+        previousBid = node.chain.getLastBlock().bid
         # Le noeud calcul le hash du dernier block de la chaine
-        nodeHash = node.computeProof(node.chain)
+        nodeHash = node.computeProof(node.chain.getLastBlock())
         # Si le hash est une réponse au problème
         if (node.checkHash(nodeHash)):
             # On passe le booléen found à Vrai
             node.found = True
             #print("Le noeud %d a trouve une solution"%node.nid)
             newBid = previousBid + 1
-            newPreviousHash = node.chain.hash
-            newBlock = Block(newBid, node.chain.hash, nodeHash)
-            print("Le noeud %d a trouve une solution bid = %d"%(node.nid,newBlock.bid))
+            newPreviousHash = node.chain.getLastBlock().hash
+            newBlock = Block(newBid, node.chain.getLastBlock().hash, nodeHash)
+            #print("Le noeud %d a trouve une solution bid = %d"%(node.nid,newBlock.bid))
             # On ajoute le bloc à la chaine courante sur laquel travail le noeud
-            node.chain = newBlock
+            node.chain.addBlock(newBlock)
             if node.chain not in forks:
                 print('Nouvelle fork cree !')
                 forks.append(node.chain)
@@ -152,10 +173,15 @@ def step():
 
 max_find = 10
 i = 0
+print('--- LANCEMENT DE LA SIMULATION --')
+print('--- NOMBRE DE NOEUD = %d DIFFICULTE = %d NOMBRE DE FORKS INITIALES = %d ---'
+%(nb_node, len(difficulty), len(forks)) )
+
 while i < max_find:
     #previous_lenFork = len(forks)
     #while (len(forks) == previous_lenFork):
     step()
+    print('--- PAS %d / %d - NOMBRE DE FORKS : %d ---'%(i+1,max_find,len(forks)))
     i += 1
     c = 0
 

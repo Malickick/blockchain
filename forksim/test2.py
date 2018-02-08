@@ -9,8 +9,8 @@ import string
 #   Créer une classe Chain pour représenter les Forks
 
 # BUG :
-#  Quand un noeuds ajoute un bloc à sa chaine cela augmente la taille de toute les chaines
-#  Solution : dissocier la fork de la chaine
+#  Quand deux noeuds trouvent une solution pour la meme chaine au lieu de fork il ajouteur +2 à la
+#  même chaine
 
 random.seed(random.SystemRandom())
 
@@ -103,15 +103,13 @@ genesisBlock = Block(0, "0", genSha.hexdigest())
 # Taille des preuves
 proof_size = 32
 # Nombre de noeuds connectés
-nb_node = 100
+nb_node = 40
 # Difficulté du PoW
-difficulty = "00"
+difficulty = "0"
 # Liste des forks
-
-forks = []
-
+#forks = []
 b = [Block(10, genesisBlock.hash, genesisBlock.hash) for _ in range(100)]
-forks = [Chain(i, b) for i in range(100)]
+forks = [Chain(i, b) for i in range(nb_node)]
 # Création des noeuds du réseau
 nodes = [Node(i, forks[i]) for i in range(nb_node)]
 #nodes = [Node(i, Chain(0, [genesisBlock])) for i in range(nb_node)]
@@ -148,7 +146,7 @@ def step():
             newBid = previousBid + 1
             newPreviousHash = node.chain.getLastBlock().hash
             newBlock = Block(newBid, node.chain.getLastBlock().hash, nodeHash)
-            #print("Le noeud %d a trouve une solution bid = %d"%(node.nid,newBlock.bid))
+            print("Le noeud %d a trouve une solution cid = %d"%(node.nid,node.chain.cid))
             # On ajoute le bloc à la chaine courante sur laquel travail le noeud
             node.chain.addBlock(newBlock)
             if node.chain not in forks:

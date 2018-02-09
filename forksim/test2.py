@@ -14,11 +14,16 @@ import string
 
 random.seed(random.SystemRandom())
 
+# Compteur de chaines pour l'id
+createdChain = 0
+
 class Chain:
     def __init__(self, cid, blocks):
+        global createdChain
         self.cid = cid
         self.lenght = 0
         self.blocks = blocks # Liste de blocs
+        createdChain += 1
 
     # Renvoie le dernier bloc de la chaine
     def getLastBlock(self):
@@ -89,10 +94,6 @@ def updateForks(m):
             res.append(fork)
     return res
 
-
-
-
-
 # Main
 
 # Variables globles:
@@ -100,6 +101,7 @@ def updateForks(m):
 genSha = hashlib.sha256()
 genSha.update("000".encode('utf-8'))
 genesisBlock = Block(0, "0", genSha.hexdigest())
+
 # Taille des preuves
 proof_size = 32
 # Nombre de noeuds connectés
@@ -109,10 +111,11 @@ difficulty = "0"
 # Liste des forks
 #forks = []
 b = [Block(10, genesisBlock.hash, genesisBlock.hash) for _ in range(100)]
-forks = [Chain(i, b) for i in range(nb_node)]
+forks = [Chain(createdChain, b) for _ in range(nb_node)]
 # Création des noeuds du réseau
 nodes = [Node(i, forks[i]) for i in range(nb_node)]
 #nodes = [Node(i, Chain(0, [genesisBlock])) for i in range(nb_node)]
+
 #
 maxForkSize = 0
 
@@ -132,6 +135,7 @@ def resetFoundNodes(nodes):
 def step():
     global nodes
     global forks
+    global createdChain
 
     for node in nodes:
         # L'index du bloc actuel
@@ -147,14 +151,23 @@ def step():
             newPreviousHash = node.chain.getLastBlock().hash
             newBlock = Block(newBid, node.chain.getLastBlock().hash, nodeHash)
             print("Le noeud %d a trouve une solution cid = %d"%(node.nid,node.chain.cid))
+            print('Taille de sa chaine actuelle = %d'%len(node.chain.blocks))
             # On ajoute le bloc à la chaine courante sur laquel travail le noeud
-            node.chain.addBlock(newBlock)
+            newBlocks = node.chain.blocks
+            newBlocks.append(newBlock)
+            #node.chain.addBlock(newBlock)
+            newChain = Chain(createdChain, newBlocks)
+            node.chain = newChain
+            print('Taille de sa nouvelle chaine = %d'%len(node.chain.blocks))
             if node.chain not in forks:
                 print('Nouvelle fork cree !')
                 forks.append(node.chain)
                 print('Nombre de forks : %d'%len(forks))
     m = longestFork(forks)
+    print('La chaine la plus longe = %d'%m)
+    print('/// Nb FORKS AVANT UPDATE = %d'%len(forks))
     forks = updateForks(m)
+    print('/// Nb FORKS APRES UPDATE = %d'%len(forks))
     distributeFork(forks, nodes)
     resetFoundNodes(nodes)
             #print("Nouveau bloc bid : %d ajoute a la chaine"%newBlock.bid)

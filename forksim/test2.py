@@ -21,7 +21,7 @@ class Chain:
     def __init__(self, cid, blocks):
         global createdChain
         self.cid = cid
-        self.lenght = 0
+        self.lenght = len(blocks)
         self.blocks = blocks # Liste de blocs
         createdChain += 1
 
@@ -75,13 +75,16 @@ class Node:
         global forks
         randomIndex = random.randint(0,len(forks)-1)
         self.chain = forks[randomIndex]
-        print('Le noeud %d adopte la fork %d'%(self.nid, randomIndex))
+        # print('Le noeud %d adopte la fork %d'%(self.nid, randomIndex))
 
 
 # Renvoie la taille de la/les plus grande(s) forks
 def longestFork(forks):
     m = 0
     for fork in forks:
+
+        #print('Debug : fork.lenght = %d'%fork.lenght)
+
         if fork.lenght > m:
             m = fork.lenght
     return m
@@ -150,24 +153,32 @@ def step():
             newBid = previousBid + 1
             newPreviousHash = node.chain.getLastBlock().hash
             newBlock = Block(newBid, node.chain.getLastBlock().hash, nodeHash)
+
             print("Le noeud %d a trouve une solution cid = %d"%(node.nid,node.chain.cid))
             print('Taille de sa chaine actuelle = %d'%len(node.chain.blocks))
+
             # On ajoute le bloc à la chaine courante sur laquel travail le noeud
             newBlocks = node.chain.blocks
             newBlocks.append(newBlock)
             #node.chain.addBlock(newBlock)
             newChain = Chain(createdChain, newBlocks)
             node.chain = newChain
+
             print('Taille de sa nouvelle chaine = %d'%len(node.chain.blocks))
+
             if node.chain not in forks:
                 print('Nouvelle fork cree !')
                 forks.append(node.chain)
                 print('Nombre de forks : %d'%len(forks))
     m = longestFork(forks)
+
     print('La chaine la plus longe = %d'%m)
     print('/// Nb FORKS AVANT UPDATE = %d'%len(forks))
+
     forks = updateForks(m)
+
     print('/// Nb FORKS APRES UPDATE = %d'%len(forks))
+
     distributeFork(forks, nodes)
     resetFoundNodes(nodes)
             #print("Nouveau bloc bid : %d ajoute a la chaine"%newBlock.bid)

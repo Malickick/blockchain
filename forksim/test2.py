@@ -1,21 +1,34 @@
 import hashlib
 import random
 import string
+import sys
+
+verbose = False
+
+if sys.argv[1] == '-v':
+    verbose = True
 
 # TODO :
 #   Donner un avantage au noeud qui à trouvé pour le round suivant (il commence à chercher avant les
 #   autres)
 #   Mettre en place pondération de noeuds
-#   Créer une classe Chain pour représenter les Forks
 
-# BUG :
-#  Quand deux noeuds trouvent une solution pour la meme chaine au lieu de fork il ajouteur +2 à la
-#  même chaine
+# BUG(s) :
 
 random.seed(random.SystemRandom())
 
 # Compteur de chaines pour l'id
 createdChain = 0
+
+class TxPool:
+    def __init__(self, txList):
+        self.txList = txList
+
+class Tx:
+    def __init__(self, tid):
+        global tx_nb
+        self.tid = tid
+        tx_nb += 1
 
 class Chain:
     def __init__(self, cid, blocks):
@@ -33,7 +46,7 @@ class Chain:
         self.blocks.append(block)
         self.lenght += 1
         #self.lenght = len(self.blocks)
-        print('Bloc ajoute a la chaine %d taille = %d'%(self.cid, self.lenght))
+        #print('Bloc ajoute a la chaine %d taille = %d'%(self.cid, self.lenght))
 
 class Block:
     def __init__(self, bid, previousHash, hash):
@@ -41,12 +54,22 @@ class Block:
         self.previousHash = previousHash
         self.hash = hash
         self.fork_id = -1 # Initialement le bloc n'appartient à aucune fork
+        self.txs = []
 
 class Node:
     def __init__(self, nid, chain):
         self.nid   = nid
         self.chain = chain
         self.found = False # Vrai si le noeud à trouvé un bloc ce round
+
+    def addTxToBlock(bloc, txPool):
+        global tx_per_bloc
+        bloc.txs = random.sample(txPool, tx_per_bloc)
+
+    # Renvoie une txPool privée des tx minées dans le bloc
+    def removeMyTx(bloc, txPool):
+        res = [tx for tx in txPool if tx not in bloc.txs]
+        return res
 
     def whoAmI(self):
         print("I'm node %d"%self.nid)
@@ -95,31 +118,9 @@ def updateForks(m):
     for fork in forks:
         if (fork.lenght == m):
             res.append(fork)
+
     return res
 
-# Main
-
-# Variables globles:
-# Le premier bloc :
-genSha = hashlib.sha256()
-genSha.update("000".encode('utf-8'))
-genesisBlock = Block(0, "0", genSha.hexdigest())
-
-# Taille des preuves
-proof_size = 32
-# Nombre de noeuds connectés
-nb_node = 40
-# Difficulté du PoW
-difficulty = "0"
-# Liste des forks
-#forks = []
-b = [Block(10, genesisBlock.hash, genesisBlock.hash) for _ in range(100)]
-forks = [Chain(createdChain, b) for _ in range(nb_node)]
-# Création des noeuds du réseau
-nodes = [Node(i, forks[i]) for i in range(nb_node)]
-#nodes = [Node(i, Chain(0, [genesisBlock])) for i in range(nb_node)]
-
-#
 maxForkSize = 0
 
 def distributeFork(forks, nodes):
@@ -134,11 +135,12 @@ def resetFoundNodes(nodes):
     for node in nodes:
         node.found = False
 
-# Une étape de la simulation
+# Une étape de la simulation de convergence
 def step():
     global nodes
     global forks
     global createdChain
+    global verbose
 
     for node in nodes:
         # L'index du bloc actuel
@@ -153,9 +155,9 @@ def step():
             newBid = previousBid + 1
             newPreviousHash = node.chain.getLastBlock().hash
             newBlock = Block(newBid, node.chain.getLastBlock().hash, nodeHash)
-
-            print("Le noeud %d a trouve une solution cid = %d"%(node.nid,node.chain.cid))
-            print('Taille de sa chaine actuelle = %d'%len(node.chain.blocks))
+            if verbose:
+                print("Le noeud %d a trouve une solution cid = %d"%(node.nid,node.chain.cid))
+            # print('Taille de sa chaine actuelle = %d'%len(node.chain.blocks))
 
             # On ajoute le bloc à la chaine courante sur laquel travail le noeud
             newBlocks = node.chain.blocks
@@ -164,34 +166,77 @@ def step():
             newChain = Chain(createdChain, newBlocks)
             node.chain = newChain
 
-            print('Taille de sa nouvelle chaine = %d'%len(node.chain.blocks))
+            # print('Taille de sa nouvelle chaine = %d'%len(node.chain.blocks))
 
             if node.chain not in forks:
-                print('Nouvelle fork cree !')
+                if verbose:
+                    print('Nouvelle fork cree !')
                 forks.append(node.chain)
-                print('Nombre de forks : %d'%len(forks))
+                if verbose:
+                    print('Nombre de forks : %d'%len(forks))
     m = longestFork(forks)
 
-    print('La chaine la plus longe = %d'%m)
-    print('/// Nb FORKS AVANT UPDATE = %d'%len(forks))
+    # print('La chaine la plus longe = %d'%m)
+    #print('/// Nb FORKS AVANT UPDATE = %d'%len(forks))
 
     forks = updateForks(m)
 
-    print('/// Nb FORKS APRES UPDATE = %d'%len(forks))
+    #print('/// Nb FORKS APRES UPDATE = %d'%len(forks))
 
     distributeFork(forks, nodes)
     resetFoundNodes(nodes)
-            #print("Nouveau bloc bid : %d ajoute a la chaine"%newBlock.bid)
-            # if (node.chain.fork_id == -1):
-            #     forks.append([newBlock])
-            #     newBlock.fork_id = len(forks) - 1
-            # else:
-            #     forks[node.chain.fork_id] = newBlock
-            #print('Fork %d cree/modifiee'%newBlock.fork_id)
 
 
+# # Main 2
+#
+# # Variables globles:
+# # Le premier bloc :
+# genSha = hashlib.sha256()
+# genSha.update("000".encode('utf-8'))
+# genesisBlock = Block(0, "0", genSha.hexdigest())
+#
+# # Transactions par bloc autrement dit taille des blocs
+# tx_per_bloc = 10
+# # Taille des preuves
+# proof_size = 32
+# # Nombre de noeuds connectés
+# nb_node = 4000
+# # Difficulté du PoW
+# difficulty = "0"
+# # Compteur de tx pour avoir un tid unique
+# tx_nb = 0
+#
+# print("-- Scalability tests --")
+#
+# tx_pool = [Tx(tx_nb) for _ in range(20000)]
+# print("Nombre de transactions initiales dans la pool : %d"%len(tx_pool))
+#
+# # Fin Main 2
 
 
+# Main 1
+
+# Variables globles:
+# Le premier bloc :
+genSha = hashlib.sha256()
+genSha.update("000".encode('utf-8'))
+genesisBlock = Block(0, "0", genSha.hexdigest())
+
+# Taille des preuves
+proof_size = 32
+# Nombre de noeuds connectés
+nb_node = 300
+# Difficulté du PoW
+difficulty = "0"
+
+# Liste des forks
+#firstChain = Block(10, genesisBlock.hash, genesisBlock.hash)
+forks = []
+# b = [Block(10, genesisBlock.hash, genesisBlock.hash) for _ in range(100)]
+#forks = [Chain(createdChain, b) for _ in range(nb_node)]
+# Création des noeuds du réseau
+#nodes = [Node(i, forks[i]) for i in range(nb_node)]
+nodes = [Node(i, Chain(0, [genesisBlock])) for i in range(nb_node)]
 
 max_find = 10
 i = 0
@@ -208,7 +253,6 @@ while i < max_find:
     c = 0
 
 print('Nombre de forks final: %d'%len(forks))
-
 
 # print('Taille avant update : %d'%len(forks))
 # l = longestFork(forks)

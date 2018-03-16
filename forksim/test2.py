@@ -2,6 +2,7 @@ import hashlib
 import random
 import string
 import sys
+import copy
 
 verbose = False
 
@@ -88,17 +89,21 @@ class Node:
 
     # Verifie si le hash trouvé est une solution
     def checkHash(self, hash):
-        if (hash.startswith(difficulty)):
-            return True
-        else:
-            return False
+        return hash.startswith(difficulty)
+        # if (hash.startswith(difficulty)):
+        #     return True
+        # else:
+        #     return False
+
 
     # Met à jour la chaine actuelle du noeuds en choisissant une fork au hasard
     def chooseFork(self):
+        global verbose
         global forks
         randomIndex = random.randint(0,len(forks)-1)
         self.chain = forks[randomIndex]
-        # print('Le noeud %d adopte la fork %d'%(self.nid, randomIndex))
+        if verbose:
+            print('Le noeud %d adopte la fork %d'%(self.nid, randomIndex))
 
 
 # Renvoie la taille de la/les plus grande(s) forks
@@ -110,13 +115,20 @@ def longestFork(forks):
 
         if fork.lenght > m:
             m = fork.lenght
+            f = fork
+
+    fork_lenghts = [fork.lenght for fork in forks]
+    if verbose:
+        print("Chaine la plus longue cid = %d, taille = %d"%(f.cid, m))
+        print("Forks : ")
+        print(fork_lenghts)
     return m
 
 # Fonction qui renvoie une liste forks mise à jour (ne contenant que les plus longues)
 def updateForks(m):
     res = []
     for fork in forks:
-        if (fork.lenght == m):
+        if (fork.lenght >= m):
             res.append(fork)
 
     return res
@@ -157,35 +169,49 @@ def step():
             newBlock = Block(newBid, node.chain.getLastBlock().hash, nodeHash)
             if verbose:
                 print("Le noeud %d a trouve une solution cid = %d"%(node.nid,node.chain.cid))
-            # print('Taille de sa chaine actuelle = %d'%len(node.chain.blocks))
+                print('Taille de sa chaine actuelle = %d'%len(node.chain.blocks))
 
-            # On ajoute le bloc à la chaine courante sur laquel travail le noeud
-            newBlocks = node.chain.blocks
+            # On ajoute le bloc à la chaine courante sur laquelle travaille le noeud
+            #print("Longueur avant = %d"%len(node.chain.blocks))
+            newBlocks = copy.copy(node.chain.blocks)
             newBlocks.append(newBlock)
+            #print("Longueur après = %d"%len(node.chain.blocks))
+
             #node.chain.addBlock(newBlock)
             newChain = Chain(createdChain, newBlocks)
             node.chain = newChain
+            forks.append(newChain)
+            if verbose:
+                print('Taille de sa chaine après = %d'%len(node.chain.blocks))
+            if verbose:
+                print("Nombre de forks = %d"%len(forks))
 
             # print('Taille de sa nouvelle chaine = %d'%len(node.chain.blocks))
 
-            if node.chain not in forks:
-                if verbose:
-                    print('Nouvelle fork cree !')
-                forks.append(node.chain)
-                if verbose:
-                    print('Nombre de forks : %d'%len(forks))
+            # if node.chain not in forks:
+            #     if verbose:
+            #         print('Nouvelle fork cree !')
+            #     forks.append(node.chain)
+            #     if verbose:
+            #         print('Nombre de forks : %d'%len(forks))
+
+            # if node.chain not in forks:
+            #     if verbose:
+            #         print('Nouvelle fork cree !')
+            #     forks.append(node.chain)
+            #     if verbose:
+            #         print('Nombre de forks : %d'%len(forks))
     m = longestFork(forks)
 
-    # print('La chaine la plus longe = %d'%m)
-    #print('/// Nb FORKS AVANT UPDATE = %d'%len(forks))
+    #print('La chaine la plus longe = %d taille = %d'%(m, ))
+    print('/// Nb FORKS AVANT UPDATE = %d'%len(forks))
 
     forks = updateForks(m)
 
-    #print('/// Nb FORKS APRES UPDATE = %d'%len(forks))
+    print('/// Nb FORKS APRES UPDATE = %d'%len(forks))
 
     distributeFork(forks, nodes)
     resetFoundNodes(nodes)
-
 
 # # Main 2
 #
@@ -213,7 +239,6 @@ def step():
 #
 # # Fin Main 2
 
-
 # Main 1
 
 # Variables globles:
@@ -225,18 +250,22 @@ genesisBlock = Block(0, "0", genSha.hexdigest())
 # Taille des preuves
 proof_size = 32
 # Nombre de noeuds connectés
-nb_node = 300
+nb_node = 400
 # Difficulté du PoW
-difficulty = "0"
+difficulty = "00"
 
 # Liste des forks
-#firstChain = Block(10, genesisBlock.hash, genesisBlock.hash)
-forks = []
-# b = [Block(10, genesisBlock.hash, genesisBlock.hash) for _ in range(100)]
+
+#fistBlock = Block(0, genesisBlock.hash, genesisBlock.hash)
+firstChain = Chain(0, [genesisBlock])
+forks = [firstChain]
+
+#b = [Block(10, genesisBlock.hash, genesisBlock.hash) for _ in range(100)]
 #forks = [Chain(createdChain, b) for _ in range(nb_node)]
+
 # Création des noeuds du réseau
 #nodes = [Node(i, forks[i]) for i in range(nb_node)]
-nodes = [Node(i, Chain(0, [genesisBlock])) for i in range(nb_node)]
+nodes = [Node(i, firstChain) for i in range(nb_node)]
 
 max_find = 10
 i = 0

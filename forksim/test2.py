@@ -3,6 +3,9 @@ import random
 import string
 import sys
 import copy
+import pickle
+import math
+
 
 verbose = False
 
@@ -58,10 +61,11 @@ class Block:
         self.txs = []
 
 class Node:
-    def __init__(self, nid, chain):
+    def __init__(self, nid, chain, team='a'):
         self.nid   = nid
         self.chain = chain
         self.found = False # Vrai si le noeud à trouvé un bloc ce round
+        self.team = team
 
     def addTxToBlock(bloc, txPool):
         global tx_per_bloc
@@ -148,7 +152,7 @@ def resetFoundNodes(nodes):
         node.found = False
 
 # Une étape de la simulation de convergence
-def step():
+def step(result):
     global nodes
     global forks
     global createdChain
@@ -181,6 +185,7 @@ def step():
             newChain = Chain(createdChain, newBlocks)
             node.chain = newChain
             forks.append(newChain)
+            result.append(len(forks))
             if verbose:
                 print('Taille de sa chaine après = %d'%len(node.chain.blocks))
             if verbose:
@@ -239,13 +244,9 @@ def step():
 #
 # # Fin Main 2
 
-# Main 1
 
-# Variables globles:
-# Le premier bloc :
-genSha = hashlib.sha256()
-genSha.update("000".encode('utf-8'))
-genesisBlock = Block(0, "0", genSha.hexdigest())
+
+# Main 3 : Experience 1
 
 # Taille des preuves
 proof_size = 32
@@ -254,37 +255,164 @@ nb_node = 400
 # Difficulté du PoW
 difficulty = "00"
 
-# Liste des forks
+def experience_1(nb_n, diff, res):
+    global difficulty
+    global nb_node
+    nb_node = nb_n
+    difficulty = diff
 
-#fistBlock = Block(0, genesisBlock.hash, genesisBlock.hash)
+    nodes = [Node(i, []) for i in range(nb_node)]
+    iteration_count = 0
+    done = False
+    while not done:
+        iteration_count += 1
+        for node in nodes:
+            proof = node.computeProof(Block(0,"0","0"))
+            if node.checkHash(proof):
+                print("Un noeud à trouvé après %d itérations"%iteration_count)
+                print("Hash = %s"%proof)
+                res.append((len(diff),iteration_count))
+                #print("Debug : res = ")
+                print(res)
+                done = True
+                break
+
+
+
+
+
+
+#Main 1
+
+#Variables globles:
+#Le premier bloc :
+genSha = hashlib.sha256()
+genSha.update("000".encode('utf-8'))
+genesisBlock = Block(0, "0", genSha.hexdigest())
+
+#Taille des preuves
+proof_size = 32
+#Nombre de noeuds connectés
+nb_node = 1000
+#Difficulté du PoW
+difficulty = "00"
+
+#Liste des forks
+
+fistBlock = Block(0, genesisBlock.hash, genesisBlock.hash)
+
 firstChain = Chain(0, [genesisBlock])
-forks = [firstChain]
 
-#b = [Block(10, genesisBlock.hash, genesisBlock.hash) for _ in range(100)]
-#forks = [Chain(createdChain, b) for _ in range(nb_node)]
+#forks = [firstChain]
 
-# Création des noeuds du réseau
-#nodes = [Node(i, forks[i]) for i in range(nb_node)]
+b = [Block(10, genesisBlock.hash, genesisBlock.hash) for _ in range(100)]
+forks = [Chain(createdChain, b) for _ in range(nb_node)]
+
+#Création des noeuds du réseau
+nodes = [Node(i, forks[i]) for i in range(nb_node)]
 nodes = [Node(i, firstChain) for i in range(nb_node)]
 
 max_find = 10
-i = 0
-print('--- LANCEMENT DE LA SIMULATION --')
-print('--- NOMBRE DE NOEUD = %d DIFFICULTE = %d NOMBRE DE FORKS INITIALES = %d ---'
-%(nb_node, len(difficulty), len(forks)) )
 
-while i < max_find:
-    #previous_lenFork = len(forks)
-    #while (len(forks) == previous_lenFork):
-    step()
-    print('--- PAS %d / %d - NOMBRE DE FORKS : %d ---'%(i+1,max_find,len(forks)))
-    i += 1
-    c = 0
+result = []
+# i = 0
+# print('--- LANCEMENT DE LA SIMULATION --')
+# print('--- NOMBRE DE NOEUD = %d DIFFICULTE = %d NOMBRE DE FORKS INITIALES = %d ---'
+# %(nb_node, len(difficulty), len(forks)) )
 
-print('Nombre de forks final: %d'%len(forks))
+# while i < max_find:
+#     while len(forks) > 1:
+#         #previous_lenFork = len(forks)
+#         #while (len(forks) == previous_lenFork):
+#         step(result)
+#         result.append(len(forks))
+#         print('--- PAS %d / %d - NOMBRE DE FORKS : %d ---'%(i+1,max_find,len(forks)))
+#         i += 1
+#         c = 0
+#     break
+#
+# print('Nombre de forks final: %d'%len(forks))
+# print("Results :")
+# print(result)
+
+# Expérience de compétition entre deux sous parties du réseau
+def experience_2(nb_nodes, difficulty, ratio, iteration_max):
+    # Pour la sérialisation des résultats
+    results_a = []
+    results_b = []
+
+    # taille des forks respectives
+    len_fork_a = 0
+    len_fork_b = 0
+
+    # Répartion du nombre de noeuds en fonction du ratio
+    nb_nodes_a = math.floor(ratio * nb_nodes)
+    nb_nodes_b = nb_nodes - nb_nodes_a
+
+    #Le premier bloc :
+    genSha = hashlib.sha256()
+    genSha.update("000".encode('utf-8'))
+    genesisBlock = Block(0, "0", genSha.hexdigest())
+    b = [Block(10, genesisBlock.hash, genesisBlock.hash) for _ in range(2)]
+    forks = [Chain(createdChain, b) for _ in range(2)]
+
+    # Les noeuds
+    nodes_a = [Node(i, forks[0], 'a') for i in range(nb_nodes_a)]
+    print(len(nodes_a))
+    nodes_b = [Node(i, forks[1], 'b') for i in range(nb_nodes_b)]
+    print(len(nodes_b))
+    nodes = nodes_a + nodes_b
+    #print(nodes)
+
+    print("--- LANCEMENT DE LA COURSE NA = %d NB = %d Difficulté = %d ---"
+    %(nb_nodes_a, nb_nodes_b, len(difficulty)))
+
+    iteration = 1
+    while iteration < iteration_max + 1:
+        print("--- ITERATION %d / %d ---"%(iteration, iteration_max))
+        for node in nodes:
+            proof = node.computeProof(b[0])
+            if node.checkHash(proof):
+                if node.team == 'a':
+                    #print("Un noeud de l'équipe A a trouvé une preuve")
+                    len_fork_a += 1
+                if node.team == 'b':
+                    #print("Un noeud de l'équipe B a trouvé une preuve")
+                    len_fork_b += 1
+        print("Taille de la chaine A = %d"%len_fork_a)
+        print("Taille de la chaine B = %d"%len_fork_b)
+        results_a.append(len_fork_a)
+        results_b.append(len_fork_b)
+        iteration += 1
+    print("Taille de la chaine A = %d"%len_fork_a)
+    print("Taille de la chaine B = %d"%len_fork_b)
+    return (results_a, results_b)
+
 
 # print('Taille avant update : %d'%len(forks))
 # l = longestFork(forks)
 # print("Taille maximum : %d"%l)
 # forks = updateForks(l)
 # print("Taille apres update : %d"%len(forks))
+
+def main():
+    results_a_b = experience_2(300, difficulty, 0.51, 500)
+    pickle_on = open("race_300_2_051_500iters_equ.pickle", "wb")
+    pickle.dump(results_a_b, pickle_on)
+    pickle_on.close()
+
+    # cf experience_1
+    # res = []
+    # diff = "0"
+    # n = 5
+    # print("Lancement experience 1")
+    # for _ in range(5):
+    #     print("N = %d Difficulté = %d"%(n,len(diff)))
+    #     experience_1(n, diff, res)
+    #     diff += "0"
+
+    # pickle_on = open("1_500_5.pickle", "wb")
+    # pickle.dump(res, pickle_on)
+    # pickle_on.close()
+
+main()

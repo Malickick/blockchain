@@ -277,11 +277,6 @@ def experience_1(nb_n, diff, res):
                 done = True
                 break
 
-
-
-
-
-
 #Main 1
 
 #Variables globles:
@@ -293,7 +288,7 @@ genesisBlock = Block(0, "0", genSha.hexdigest())
 #Taille des preuves
 proof_size = 32
 #Nombre de noeuds connectés
-nb_node = 1000
+nb_node = 200
 #Difficulté du PoW
 difficulty = "00"
 
@@ -306,34 +301,38 @@ firstChain = Chain(0, [genesisBlock])
 #forks = [firstChain]
 
 b = [Block(10, genesisBlock.hash, genesisBlock.hash) for _ in range(100)]
-forks = [Chain(createdChain, b) for _ in range(nb_node)]
-
+#forks = [Chain(createdChain, b) for _ in range(nb_node)]
+forks = [Chain(createdChain, b)] # Une seul chaine
 #Création des noeuds du réseau
-nodes = [Node(i, forks[i]) for i in range(nb_node)]
+nodes = [Node(i, forks[0]) for i in range(nb_node)]
+#nodes = [Node(i, forks[i]) for i in range(nb_node)]
 nodes = [Node(i, firstChain) for i in range(nb_node)]
 
 max_find = 10
 
 result = []
-# i = 0
-# print('--- LANCEMENT DE LA SIMULATION --')
-# print('--- NOMBRE DE NOEUD = %d DIFFICULTE = %d NOMBRE DE FORKS INITIALES = %d ---'
-# %(nb_node, len(difficulty), len(forks)) )
+i = 0
+print('--- LANCEMENT DE LA SIMULATION --')
+print('--- NOMBRE DE NOEUD = %d DIFFICULTE = %d NOMBRE DE FORKS INITIALES = %d ---'
+%(nb_node, len(difficulty), len(forks)) )
 
-# while i < max_find:
-#     while len(forks) > 1:
-#         #previous_lenFork = len(forks)
-#         #while (len(forks) == previous_lenFork):
-#         step(result)
-#         result.append(len(forks))
-#         print('--- PAS %d / %d - NOMBRE DE FORKS : %d ---'%(i+1,max_find,len(forks)))
-#         i += 1
-#         c = 0
-#     break
-#
-# print('Nombre de forks final: %d'%len(forks))
-# print("Results :")
-# print(result)
+while i < max_find:
+    while(True):
+    #while len(forks) > 1:
+        #previous_lenFork = len(forks)
+        #while (len(forks) == previous_lenFork):
+        step(result)
+        result.append(len(forks))
+        print('--- PAS %d / %d - NOMBRE DE FORKS : %d ---'%(i+1,max_find,len(forks)))
+        i += 1
+        c = 0
+        if (i>10):
+            break
+    break
+
+print('Nombre de forks final: %d'%len(forks))
+print("Results :")
+print(result)
 
 # Expérience de compétition entre deux sous parties du réseau
 def experience_2(nb_nodes, difficulty, ratio, iteration_max):
@@ -395,11 +394,11 @@ def experience_2(nb_nodes, difficulty, ratio, iteration_max):
 # forks = updateForks(l)
 # print("Taille apres update : %d"%len(forks))
 
-def main():
-    results_a_b = experience_2(300, difficulty, 0.51, 500)
-    pickle_on = open("race_300_2_051_500iters_equ.pickle", "wb")
-    pickle.dump(results_a_b, pickle_on)
-    pickle_on.close()
+def main():pass
+    # results_a_b = experience_2(300, difficulty, 0.51, 500)
+    # pickle_on = open("race_300_2_051_500iters_equ.pickle", "wb")
+    # pickle.dump(results_a_b, pickle_on)
+    # pickle_on.close()
 
     # cf experience_1
     # res = []
@@ -415,4 +414,4 @@ def main():
     # pickle.dump(res, pickle_on)
     # pickle_on.close()
 
-main()
+#main()
